@@ -1,4 +1,4 @@
-const SCRIPT_VERSION = 'v20250611';
+const SCRIPT_VERSION = 'v20250617';
 // == 样式注入模块 ==
 // 注入自定义CSS隐藏特定元素
 function injectCustomCSS() {
@@ -175,7 +175,7 @@ const trafficRenderer = (() => {
       // 查找对应显示区域
       const targetElement = Array.from(document.querySelectorAll('section.grid.items-center.gap-2'))
         .find(section => {
-          const firstText = section.querySelector('p.break-all.font-bold.tracking-tight.text-xs')?.textContent.trim();
+          const firstText = section.querySelector('p')?.textContent.trim();
           return firstText === serverName.trim();
         });
       if (!targetElement) return;
