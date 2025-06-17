@@ -89,22 +89,22 @@ const utils = (() => {
     const p = clamp(Number(percentage), 0, 100);
     let h, s, l;
 
-  if (p <= 35) {
+if (p <= 35) {
   const t = p / 35;
-  h = lerp(40, 0, t);    // 米白色到正白色（H 40 -> 0）
-  s = lerp(30, 0, t);    // 减少饱和度
-  l = lerp(90, 100, t);  // 提高亮度到纯白
-  } else if (p <= 85) {
+  h = 130;               // 固定绿色（H 130）
+  s = lerp(20, 60, t);   // 增加饱和度
+  l = lerp(95, 60, t);   // 从浅绿渐变到正常绿
+} else if (p <= 85) {
   const t = (p - 35) / 50;
-  h = lerp(0, 200, t);   // 白色到淡蓝（H 0 -> 200）
-  s = lerp(0, 20, t);    // 稍微增加蓝色饱和度
-  l = lerp(100, 95, t);  // 亮度略微下降
-  } else {
+  h = 130;               // 继续绿色
+  s = lerp(60, 80, t);   // 增强饱和度
+  l = lerp(60, 40, t);   // 渐变成深绿
+} else {
   const t = (p - 85) / 15;
-  h = 200;               // 固定在淡蓝色
-  s = 20;
-  l = lerp(95, 90, t);   // 略微加深亮度
-  }
+  h = 130;               // 保持绿色
+  s = 80;
+  l = lerp(40, 30, t);   // 深绿到更深绿
+}
     return `hsl(${h.toFixed(0)}, ${s.toFixed(0)}%, ${l.toFixed(0)}%)`;
   }
 
