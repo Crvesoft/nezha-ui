@@ -1,4 +1,4 @@
-const SCRIPT_VERSION = 'v20260716-turbo';
+const SCRIPT_VERSION = 'v20260716-stable-v3';
 
 // == 样式注入模块 == //
 function injectCustomCSS() {
@@ -13,9 +13,16 @@ function injectCustomCSS() {
         /* 流量外层容器稳定器，防止闪烁与抖动 */
         .nezha-traffic-wrapper {
             width: 100% !important;
-            min-height: 32px !important; /* 锁定高度，消除闪烁波及周围布局 */
+            min-height: 32px !important; /* 锁定高度，消除闪烁 */
             margin-top: 0.375rem !important;
             display: block !important;
+        }
+        /* 强制覆盖背景条样式，确保在亮色和暗色模式下剩余流量（背景灰色）都清晰可见 */
+        .nezha-progress-bg {
+            background-color: rgba(0, 0, 0, 0.08) !important;
+        }
+        .dark .nezha-progress-bg {
+            background-color: rgba(255, 255, 255, 0.12) !important;
         }
     `;
     document.head.appendChild(style);
@@ -61,7 +68,7 @@ const utils = (() => {
 
     function getHslGradientColor(percentage) {
         const p = Math.min(Math.max(Number(percentage), 0), 100);
-        let h = 130; // 固定深绿基调，或根据需要改为 lerp 算法
+        let h = 130; // 维持你喜欢的翠绿色
         return `hsl(${h}, 75%, 32%)`;
     }
 
@@ -171,10 +178,9 @@ const trafficRenderer = (() => {
                 `<span class="text-[10px] text-neutral-500">${nextUpdate}</span>`
             ];
 
-            // 核心去闪烁逻辑：如果骨架已成型，直接更新内部子节点，不重写整个 wrapper
+            // 核心去闪烁与静默更新逻辑
             let timeInfoEl = wrapper.querySelector('.traffic-time-info');
             if (timeInfoEl) {
-                // 静默更新数字，防止节点蒸发
                 const usedEl = wrapper.querySelector('.t-used');
                 const totalEl = wrapper.querySelector('.t-total');
                 const barEl = wrapper.querySelector('.t-bar');
@@ -186,12 +192,12 @@ const trafficRenderer = (() => {
                     barEl.style.backgroundColor = progressColor;
                 }
                 
-                // 更新轮播队列中的静态内容缓存
                 const boundItem = toggleElements.find(item => item.el === timeInfoEl);
                 if (boundItem) boundItem.contents = rotators;
                 
             } else {
                 // 初次构建容器内部骨架
+                // 重点：.nezha-progress-bg 提供强制显化的高透明度“未使用流量”背景条
                 wrapper.innerHTML = `
                     <div class="flex items-center justify-between animate-fade-in">
                         <div class="flex items-baseline gap-1 text-[10px] font-medium text-neutral-800 dark:text-neutral-200">
@@ -203,7 +209,7 @@ const trafficRenderer = (() => {
                             ${defaultTimeHTML}
                         </div>
                     </div>
-                    <div class="relative h-1.5 w-full mt-1 bg-neutral-200 dark:bg-neutral-800 rounded-full overflow-hidden">
+                    <div class="relative h-1.5 w-full mt-1 rounded-full overflow-hidden nezha-progress-bg">
                         <div class="t-bar absolute top-0 left-0 h-full rounded-full transition-all duration-500 ease-out" style="width: ${percentage}%; background-color: ${progressColor};"></div>
                     </div>
                 `;
@@ -275,7 +281,6 @@ const domObserver = (() => {
         mainObserver = new MutationObserver(mutations => {
             let shouldTrigger = false;
             for (const m of mutations) {
-                // 关键点：如果变动的节点是我们自己的进度条或者轮播文字，直接忽略，阻断死循环
                 const isSelfAction = Array.from(m.addedNodes).concat(Array.from(m.removedNodes)).some(node => {
                     return node.classList && (
                         node.classList.contains('nezha-traffic-wrapper') || 
@@ -327,22 +332,16 @@ const domObserver = (() => {
         });
     }
 
-    // 防抖设为 150ms，既保证切换标签时渲染足够快，又防止高频触发
     const debouncedRender = utils.debounce(fireUpdate, 150);
 
-    // 启动 DOM 级实时补痕监听
     const detector = domObserver.startDetector(debouncedRender);
 
-    // 周期性后端同步
     trafficTimer = setInterval(fireUpdate, config.interval);
 
-    // 启动文字轮播
     trafficRenderer.startToggleCycle(config.toggleInterval, config.duration);
 
-    // 首次载入渲染
     fireUpdate();
 
-    // 兜底：100ms 后再次校验自定义配置项
     setTimeout(() => {
         const freshConfig = Object.assign({}, defaultConfig, window.TrafficScriptConfig || {});
         if (JSON.stringify(freshConfig) !== JSON.stringify(config)) {
