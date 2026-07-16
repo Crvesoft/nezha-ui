@@ -103,6 +103,39 @@ const utils = (() => {
 // == 流量统计渲染模块 ==
 const trafficRenderer = (() => {
     let toggleElements = [];
+    let serverElementMap = new Map();
+
+    function ensureServerWrapper(containerDiv, serverData) {
+        const uniqueClassName = `traffic-wrapper-${serverData.id}`;
+        let wrapper = containerDiv.querySelector(`.${uniqueClassName}`);
+
+        if (!wrapper) {
+            wrapper = serverElementMap.get(serverData.id) || null;
+        }
+
+        if (!wrapper) {
+            wrapper = document.createElement('div');
+            wrapper.classList.add('nezha-traffic-wrapper', 'new-inserted-element', uniqueClassName);
+            wrapper.setAttribute('data-nezha-server-id', String(serverData.id));
+            serverElementMap.set(serverData.id, wrapper);
+        } else {
+            wrapper.classList.add('nezha-traffic-wrapper', 'new-inserted-element', uniqueClassName);
+            wrapper.setAttribute('data-nezha-server-id', String(serverData.id));
+            serverElementMap.set(serverData.id, wrapper);
+        }
+
+        if (!wrapper.isConnected || wrapper.parentNode !== containerDiv) {
+            const refSection = containerDiv.querySelector('section.flex.items-center.w-full.justify-between.gap-1') ||
+                containerDiv.querySelector('section.grid.items-center.gap-3');
+            if (refSection) {
+                refSection.after(wrapper);
+            } else {
+                containerDiv.appendChild(wrapper);
+            }
+        }
+
+        return wrapper;
+    }
 
     function renderTrafficStats(trafficData, config) {
         injectCustomCSS(); // 确保样式始终在标签切换后生效
@@ -139,26 +172,11 @@ const trafficRenderer = (() => {
             const containerDiv = targetSection.closest('div');
             if (!containerDiv) return;
 
-            const uniqueClassName = `traffic-wrapper-${serverData.id}`;
-            let wrapper = containerDiv.querySelector(`.${uniqueClassName}`);
-
-            // 如果容器不存在，则创建并插入占位容器
-            if (!wrapper) {
-                wrapper = document.createElement('div');
-                wrapper.classList.add('nezha-traffic-wrapper', 'new-inserted-element', uniqueClassName);
-                
-                // 定位原版卡片内部的分割线或网格
-                const refSection = containerDiv.querySelector('section.flex.items-center.w-full.justify-between.gap-1') || 
-                                   containerDiv.querySelector('section.grid.items-center.gap-3');
-                if (refSection) {
-                    refSection.after(wrapper);
-                } else {
-                    containerDiv.appendChild(wrapper);
-                }
-            }
+            const wrapper = ensureServerWrapper(containerDiv, serverData);
 
             if (!config.showTrafficStats) {
                 wrapper.remove();
+                serverElementMap.delete(serverData.id);
                 return;
             }
 
