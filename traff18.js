@@ -159,23 +159,35 @@ const trafficRenderer = (() => {
       'section.grid.items-center.gap-3',
       'section.flex.items-center.w-full.justify-between.gap-1'
     ];
-    const cards = Array.from(document.querySelectorAll(cardSelectors.join(',')));
+    let cards = Array.from(document.querySelectorAll(cardSelectors.join(',')));
+
+    if (cards.length === 0) {
+      cards = Array.from(document.querySelectorAll('section, article, div'))
+        .filter(node => {
+          const text = normalizeText(node.textContent);
+          return text.includes('上传') && text.includes('下载');
+        });
+    }
 
     for (const card of cards) {
-      const titleNode = card.querySelector('p, h1, h2, h3, h4, h5, span');
-      if (!titleNode || !titleNode.textContent) continue;
-      const titleText = normalizeText(titleNode.textContent);
-      if (titleText === normalizedName) {
-        return card;
+      const titleNodes = Array.from(card.querySelectorAll('p, h1, h2, h3, h4, h5, span'));
+      for (const node of titleNodes) {
+        if (!node.textContent) continue;
+        const titleText = normalizeText(node.textContent);
+        if (titleText === normalizedName) {
+          return card;
+        }
       }
     }
 
     for (const card of cards) {
-      const titleNode = card.querySelector('p, h1, h2, h3, h4, h5, span');
-      if (!titleNode || !titleNode.textContent) continue;
-      const titleText = normalizeText(titleNode.textContent);
-      if (titleText.includes(normalizedName)) {
-        return card;
+      const titleNodes = Array.from(card.querySelectorAll('p, h1, h2, h3, h4, h5, span'));
+      for (const node of titleNodes) {
+        if (!node.textContent) continue;
+        const titleText = normalizeText(node.textContent);
+        if (titleText.includes(normalizedName)) {
+          return card;
+        }
       }
     }
 
