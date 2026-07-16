@@ -4,12 +4,9 @@ const SCRIPT_VERSION = 'v20250617';
 function injectCustomCSS() {
   const style = document.createElement('style');
   style.textContent = `
-    /* 隐藏旧版流量占位结构，仅隐藏原始占位元素，不影响新插入的流量条 */
+    /* 隐藏父级类名为 mt-4 w-full mx-auto 下的所有 div */
     .mt-4.w-full.mx-auto > div {
       display: none;
-    }
-    .new-inserted-element {
-      display: block !important;
     }
   `;
   document.head.appendChild(style);
@@ -146,54 +143,6 @@ const trafficRenderer = (() => {
    * @param {Object} trafficData - 后台返回的流量数据
    * @param {Object} config - 配置项
    */
-  function normalizeText(text) {
-    return text?.replace(/\s+/g, ' ').trim().toLowerCase() || '';
-  }
-
-  function findServerContainerByName(serverName) {
-    const normalizedName = normalizeText(serverName);
-    if (!normalizedName) return null;
-
-    const cardSelectors = [
-      'section.grid.items-center.gap-2',
-      'section.grid.items-center.gap-3',
-      'section.flex.items-center.w-full.justify-between.gap-1'
-    ];
-    let cards = Array.from(document.querySelectorAll(cardSelectors.join(',')));
-
-    if (cards.length === 0) {
-      cards = Array.from(document.querySelectorAll('section, article, div'))
-        .filter(node => {
-          const text = normalizeText(node.textContent);
-          return text.includes('上传') && text.includes('下载');
-        });
-    }
-
-    for (const card of cards) {
-      const titleNodes = Array.from(card.querySelectorAll('p, h1, h2, h3, h4, h5, span'));
-      for (const node of titleNodes) {
-        if (!node.textContent) continue;
-        const titleText = normalizeText(node.textContent);
-        if (titleText === normalizedName) {
-          return card;
-        }
-      }
-    }
-
-    for (const card of cards) {
-      const titleNodes = Array.from(card.querySelectorAll('p, h1, h2, h3, h4, h5, span'));
-      for (const node of titleNodes) {
-        if (!node.textContent) continue;
-        const titleText = normalizeText(node.textContent);
-        if (titleText.includes(normalizedName)) {
-          return card;
-        }
-      }
-    }
-
-    return null;
-  }
-
   function renderTrafficStats(trafficData, config) {
     const serverMap = new Map();
 
@@ -208,9 +157,8 @@ const trafficRenderer = (() => {
         const from = cycle.from;
         const to = cycle.to;
         const next_update = cycle.next_update[serverId];
-        const normalizedName = normalizeText(serverName);
-        if (normalizedName && transfer !== undefined && max != null && from != null && to != null) {
-          serverMap.set(normalizedName, {
+        if (serverName && transfer !== undefined && max && from && to) {
+          serverMap.set(serverName, {
             id: serverId,
             transfer,
             max,
@@ -225,11 +173,12 @@ const trafficRenderer = (() => {
 
     serverMap.forEach((serverData, serverName) => {
       // 查找对应显示区域
-      const targetElement = findServerContainerByName(serverName);
-      if (!targetElement) {
-        if (config.enableLog) console.warn('[renderTrafficStats] 未找到匹配卡片:', serverName);
-        return;
-      }
+      const targetElement = Array.from(document.querySelectorAll('section.grid.items-center.gap-2'))
+        .find(section => {
+          const firstText = section.querySelector('p')?.textContent.trim();
+          return firstText === serverName.trim();
+        });
+      if (!targetElement) return;
 
       // 格式化数据
       const usedFormatted = utils.formatFileSize(serverData.transfer);
@@ -240,7 +189,7 @@ const trafficRenderer = (() => {
       const nextUpdateFormatted = new Date(serverData.next_update).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
       const uniqueClassName = 'traffic-stats-for-server-' + serverData.id;
       const progressColor = utils.getHslGradientColor(percentage);
-      const containerDiv = targetElement.closest('section.grid.items-center.gap-2, section.grid.items-center.gap-3, section.flex.items-center.w-full.justify-between.gap-1') || targetElement;
+      const containerDiv = targetElement.closest('div');
       if (!containerDiv) return;
 
       // 日志输出函数
@@ -285,9 +234,7 @@ const trafficRenderer = (() => {
         } else {
           oldSection = containerDiv.querySelector('section.grid.items-center.gap-3');
         }
-        if (!oldSection) {
-          oldSection = containerDiv.querySelector('section, div') || targetElement;
-        }
+        if (!oldSection) return;
 
         // 时间区间内容，用于切换显示
         const defaultTimeInfoHTML = `<span class="from-date">${fromFormatted}</span>
