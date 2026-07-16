@@ -154,28 +154,27 @@ const trafficRenderer = (() => {
     const normalizedName = normalizeText(serverName);
     if (!normalizedName) return null;
 
-    const titleNodes = Array.from(document.querySelectorAll('p, span, div, h1, h2, h3, h4, h5'))
-      .filter(node => normalizeText(node.textContent) === normalizedName);
+    const cardSelectors = [
+      'section.grid.items-center.gap-2',
+      'section.grid.items-center.gap-3',
+      'section.flex.items-center.w-full.justify-between.gap-1'
+    ];
+    const cards = Array.from(document.querySelectorAll(cardSelectors.join(',')));
 
-    for (const node of titleNodes) {
-      let card = node.closest('div, section, article');
-      while (card && card !== document.body) {
-        const cardText = normalizeText(card.textContent);
-        if (cardText.includes(normalizedName) && cardText.includes('上传') && cardText.includes('下载')) {
-          return card;
-        }
-        if (card.matches && card.matches('section.grid.items-center.gap-2, section.grid.items-center.gap-3, section.flex.items-center.w-full.justify-between.gap-1')) {
-          return card;
-        }
-        card = card.parentElement;
+    for (const card of cards) {
+      const titleNode = card.querySelector('p, h1, h2, h3, h4, h5, span');
+      if (!titleNode || !titleNode.textContent) continue;
+      const titleText = normalizeText(titleNode.textContent);
+      if (titleText === normalizedName) {
+        return card;
       }
     }
 
-    // 若精确标题未命中，尝试更宽松的回退匹配
-    const fallbackCards = Array.from(document.querySelectorAll('section.grid.items-center.gap-2, section.grid.items-center.gap-3, section.flex.items-center.w-full.justify-between.gap-1'));
-    for (const card of fallbackCards) {
-      const cardText = normalizeText(card.textContent);
-      if (cardText.includes(normalizedName) && cardText.includes('上传') && cardText.includes('下载')) {
+    for (const card of cards) {
+      const titleNode = card.querySelector('p, h1, h2, h3, h4, h5, span');
+      if (!titleNode || !titleNode.textContent) continue;
+      const titleText = normalizeText(titleNode.textContent);
+      if (titleText.includes(normalizedName)) {
         return card;
       }
     }
