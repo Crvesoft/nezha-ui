@@ -117,6 +117,8 @@ const trafficRenderer = (() => {
             wrapper = document.createElement('div');
             wrapper.classList.add('nezha-traffic-wrapper', 'new-inserted-element', uniqueClassName);
             wrapper.setAttribute('data-nezha-server-id', String(serverData.id));
+            wrapper.style.opacity = '0';
+            wrapper.style.transition = 'opacity 180ms ease';
             serverElementMap.set(serverData.id, wrapper);
         } else {
             wrapper.classList.add('nezha-traffic-wrapper', 'new-inserted-element', uniqueClassName);
@@ -132,9 +134,25 @@ const trafficRenderer = (() => {
             } else {
                 containerDiv.appendChild(wrapper);
             }
+
+            requestAnimationFrame(() => {
+                wrapper.style.opacity = '1';
+            });
         }
 
         return wrapper;
+    }
+
+    function findServerContainerByName(serverName) {
+        const textSelector = 'p, span, div, h1, h2, h3, h4, h5';
+        const normalized = serverName.trim();
+        const nodes = Array.from(document.querySelectorAll(textSelector));
+        for (const node of nodes) {
+            if (node.textContent?.trim() === normalized) {
+                return node.closest('div');
+            }
+        }
+        return null;
     }
 
     function renderTrafficStats(trafficData, config) {
@@ -164,12 +182,8 @@ const trafficRenderer = (() => {
         toggleElements = toggleElements.filter(item => document.body.contains(item.el));
 
         serverMap.forEach((serverData, serverName) => {
-            // 精准匹配服务器卡片标题
-            const targetSection = Array.from(document.querySelectorAll('section.grid.items-center.gap-2'))
-                .find(section => section.querySelector('p')?.textContent.trim() === serverName);
-
-            if (!targetSection) return;
-            const containerDiv = targetSection.closest('div');
+            // 更稳的服务器卡片定位：先按服务器名搜索文本节点，再取其最近包裹容器
+            const containerDiv = findServerContainerByName(serverName);
             if (!containerDiv) return;
 
             const wrapper = ensureServerWrapper(containerDiv, serverData);
