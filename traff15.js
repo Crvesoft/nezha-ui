@@ -154,24 +154,33 @@ const trafficRenderer = (() => {
     const normalizedName = normalizeText(serverName);
     if (!normalizedName) return null;
 
-    const textCandidates = Array.from(document.querySelectorAll('p, span, div, h1, h2, h3, h4, h5'));
-    for (const node of textCandidates) {
-      if (!node.textContent) continue;
-      const nodeText = normalizeText(node.textContent);
-      if (nodeText === normalizedName || nodeText.includes(normalizedName)) {
-        let card = node.closest('section, article, div');
-        while (card && card !== document.body) {
-          if (card.matches && card.matches('section.grid.items-center.gap-2, section.grid.items-center.gap-3, section.flex.items-center.w-full.justify-between.gap-1')) {
-            return card;
-          }
-          card = card.parentElement;
+    const titleNodes = Array.from(document.querySelectorAll('p, span, div, h1, h2, h3, h4, h5'))
+      .filter(node => normalizeText(node.textContent) === normalizedName);
+
+    for (const node of titleNodes) {
+      let card = node.closest('div, section, article');
+      while (card && card !== document.body) {
+        const cardText = normalizeText(card.textContent);
+        if (cardText.includes(normalizedName) && cardText.includes('上传') && cardText.includes('下载')) {
+          return card;
         }
-        return node.closest('div');
+        if (card.matches && card.matches('section.grid.items-center.gap-2, section.grid.items-center.gap-3, section.flex.items-center.w-full.justify-between.gap-1')) {
+          return card;
+        }
+        card = card.parentElement;
       }
     }
 
-    const fallbackSections = Array.from(document.querySelectorAll('section.grid.items-center.gap-2, section.grid.items-center.gap-3, section.flex.items-center.w-full.justify-between.gap-1, div'));
-    return fallbackSections.find(section => normalizeText(section.textContent).includes(normalizedName)) || null;
+    // 若精确标题未命中，尝试更宽松的回退匹配
+    const fallbackCards = Array.from(document.querySelectorAll('section.grid.items-center.gap-2, section.grid.items-center.gap-3, section.flex.items-center.w-full.justify-between.gap-1'));
+    for (const card of fallbackCards) {
+      const cardText = normalizeText(card.textContent);
+      if (cardText.includes(normalizedName) && cardText.includes('上传') && cardText.includes('下载')) {
+        return card;
+      }
+    }
+
+    return null;
   }
 
   function renderTrafficStats(trafficData, config) {
@@ -220,7 +229,7 @@ const trafficRenderer = (() => {
       const nextUpdateFormatted = new Date(serverData.next_update).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
       const uniqueClassName = 'traffic-stats-for-server-' + serverData.id;
       const progressColor = utils.getHslGradientColor(percentage);
-      const containerDiv = targetElement.closest('section, article, div') || targetElement;
+      const containerDiv = targetElement.closest('section.grid.items-center.gap-2, section.grid.items-center.gap-3, section.flex.items-center.w-full.justify-between.gap-1') || targetElement;
       if (!containerDiv) return;
 
       // 日志输出函数
@@ -266,7 +275,7 @@ const trafficRenderer = (() => {
           oldSection = containerDiv.querySelector('section.grid.items-center.gap-3');
         }
         if (!oldSection) {
-          oldSection = targetElement;
+          oldSection = containerDiv.querySelector('section, div') || targetElement;
         }
 
         // 时间区间内容，用于切换显示
