@@ -1,4 +1,5 @@
-const SCRIPT_VERSION = 'v20250617';
+const SCRIPT_VERSION = 'v20250617_fixed';
+
 // == 样式注入模块 ==
 // 注入自定义CSS隐藏特定元素
 function injectCustomCSS() {
@@ -88,23 +89,22 @@ const utils = (() => {
     const lerp = (start, end, t) => start + (end - start) * t;
     const p = clamp(Number(percentage), 0, 100);
     let h, s, l;
-
-if (p <= 35) {
-  const t = p / 35;
-  h = lerp(130, 130, t);  // 深绿到深蓝（H 140 -> 220）
-  s = lerp(70, 80, t);    // 稍微增强饱和度
-  l = lerp(30, 35, t);    // 亮度略微变亮
-} else if (p <= 85) {
-  const t = (p - 35) / 50;
-  h = lerp(130, 130, t); // 深蓝到紫蓝（H 220 -> 260）
-  s = lerp(80, 75, t);    // 稍微减少饱和度
-  l = lerp(35, 32, t);    // 亮度轻微下降
-} else {
-  const t = (p - 85) / 15;
-  h = lerp(130, 130, t); // 紫蓝到深紫（H 260 -> 280）
-  s = lerp(75, 70, t);    // 保持较高饱和度
-  l = lerp(32, 28, t);    // 加深亮度，趋近深紫
-}
+    if (p <= 35) {
+      const t = p / 35;
+      h = lerp(130, 130, t);  // 深绿到深蓝（H 140 -> 220）
+      s = lerp(70, 80, t);    // 稍微增强饱和度
+      l = lerp(30, 35, t);    // 亮度略微变亮
+    } else if (p <= 85) {
+      const t = (p - 35) / 50;
+      h = lerp(130, 130, t); // 深蓝到紫蓝（H 220 -> 260）
+      s = lerp(80, 75, t);    // 稍微减少饱和度
+      l = lerp(35, 32, t);    // 亮度轻微下降
+    } else {
+      const t = (p - 85) / 15;
+      h = lerp(130, 130, t); // 紫蓝到深紫（H 260 -> 280）
+      s = lerp(75, 70, t);    // 保持较高饱和度
+      l = lerp(32, 28, t);    // 加深亮度，趋近深紫
+    }
     return `hsl(${h.toFixed(0)}, ${s.toFixed(0)}%, ${l.toFixed(0)}%)`;
   }
 
@@ -145,7 +145,6 @@ const trafficRenderer = (() => {
    */
   function renderTrafficStats(trafficData, config) {
     const serverMap = new Map();
-
     // 解析流量数据，按服务器名聚合
     for (const cycleId in trafficData) {
       const cycle = trafficData[cycleId];
@@ -158,7 +157,7 @@ const trafficRenderer = (() => {
         const to = cycle.to;
         const next_update = cycle.next_update[serverId];
         if (serverName && transfer !== undefined && max && from && to) {
-          serverMap.set(serverName, {
+          serverMap.set(serverName.trim(), {
             id: serverId,
             transfer,
             max,
@@ -172,12 +171,14 @@ const trafficRenderer = (() => {
     }
 
     serverMap.forEach((serverData, serverName) => {
-      // 查找对应显示区域
-      const targetElement = Array.from(document.querySelectorAll('section.grid.items-center.gap-2'))
-        .find(section => {
-          const firstText = section.querySelector('p')?.textContent.trim();
-          return firstText === serverName.trim();
+      // 【修复改进】扩大选择范围，不再局限于 section.grid.items-center.gap-2
+      const targetElement = Array.from(document.querySelectorAll('section, div.flex, div.grid'))
+        .find(el => {
+          const pTag = el.querySelector('p');
+          if (!pTag) return false;
+          return pTag.textContent.trim() === serverName;
         });
+
       if (!targetElement) return;
 
       // 格式化数据
@@ -193,7 +194,9 @@ const trafficRenderer = (() => {
       if (!containerDiv) return;
 
       // 日志输出函数
-      const log = (...args) => { if (config.enableLog) console.log('[renderTrafficStats]', ...args); };
+      const log = (...args) => {
+        if (config.enableLog) console.log('[renderTrafficStats]', ...args);
+      };
 
       // 查找是否已有对应流量条目元素
       const existing = Array.from(containerDiv.querySelectorAll('.new-inserted-element'))
@@ -218,7 +221,6 @@ const trafficRenderer = (() => {
         utils.safeSetTextContent(existing, '.to-date', toFormatted);
         utils.safeSetTextContent(existing, '.percentage-value', percentage + '%');
         utils.safeSetTextContent(existing, '.next-update', `next update: ${nextUpdateFormatted}`);
-
         const progressBar = existing.querySelector('.progress-bar');
         if (progressBar) {
           progressBar.style.width = percentage + '%';
@@ -229,17 +231,20 @@ const trafficRenderer = (() => {
         // 插入新的流量条目元素
         let oldSection = null;
         if (config.insertAfter) {
-          oldSection = containerDiv.querySelector('section.flex.items-center.w-full.justify-between.gap-1')
-            || containerDiv.querySelector('section.grid.items-center.gap-3');
+          // 【修复改进】多级后备的选择器查找，适应不同卡片模板结构，防止获取不到 oldSection 报错
+          oldSection = containerDiv.querySelector('section.flex.items-center.w-full.justify-between.gap-1') 
+                    || containerDiv.querySelector('section.grid.items-center.gap-3')
+                    || containerDiv.querySelector('div.flex.items-center.justify-between')
+                    || containerDiv.lastElementChild;
         } else {
-          oldSection = containerDiv.querySelector('section.grid.items-center.gap-3');
+          oldSection = containerDiv.querySelector('section.grid.items-center.gap-3') 
+                    || containerDiv.lastElementChild;
         }
+
         if (!oldSection) return;
 
         // 时间区间内容，用于切换显示
-        const defaultTimeInfoHTML = `<span class="from-date">${fromFormatted}</span>
-                <span class="text-neutral-500 dark:text-neutral-400">-</span>
-                <span class="to-date">${toFormatted}</span>`;
+        const defaultTimeInfoHTML = `<span class="from-date">${fromFormatted}</span> <span class="text-neutral-500 dark:text-neutral-400">-</span> <span class="to-date">${toFormatted}</span>`;
         const contents = [
           defaultTimeInfoHTML,
           `<span class="text-[10px] font-medium text-neutral-800 dark:text-neutral-200 percentage-value">${percentage}%</span>`,
@@ -267,7 +272,6 @@ const trafficRenderer = (() => {
             <div class="absolute inset-0 bg-emerald-500 rounded-full transition-all duration-300 progress-bar" style="width: ${percentage}%; max-width: 100%; background-color: ${progressColor};"></div>
           </div>
         `;
-
         oldSection.after(newElement);
         log(`插入新流量条目: ${serverName}`);
 
@@ -275,10 +279,7 @@ const trafficRenderer = (() => {
         if (config.toggleInterval > 0) {
           const timeInfoElement = newElement.querySelector('.time-info');
           if (timeInfoElement) {
-            toggleElements.push({
-              el: timeInfoElement,
-              contents
-            });
+            toggleElements.push({ el: timeInfoElement, contents });
           }
         }
       }
@@ -293,7 +294,6 @@ const trafficRenderer = (() => {
   function startToggleCycle(toggleInterval, duration) {
     if (toggleInterval <= 0) return;
     let toggleIndex = 0;
-
     setInterval(() => {
       toggleIndex++;
       toggleElements.forEach(({ el, contents }) => {
@@ -427,7 +427,7 @@ const domObserver = (() => {
 // == 主程序入口 ==
 (function main() {
   // 默认配置
-  const defaultConfig = {
+  let defaultConfig = {
     showTrafficStats: true,
     insertAfter: true,
     interval: 60000,
@@ -436,12 +436,15 @@ const domObserver = (() => {
     apiUrl: '/api/v1/service',
     enableLog: false
   };
+
   // 合并用户自定义配置
-  const config = Object.assign({}, defaultConfig, window.TrafficScriptConfig || {});
+  let config = Object.assign({}, defaultConfig, window.TrafficScriptConfig || {});
+
   if (config.enableLog) {
     console.log(`[TrafficScript] 版本: ${SCRIPT_VERSION}`);
     console.log('[TrafficScript] 最终配置如下:', config);
   }
+
   /**
    * 获取并刷新流量统计
    */
@@ -477,15 +480,17 @@ const domObserver = (() => {
 
   // 启动内容切换轮播（如时间、百分比）
   trafficRenderer.startToggleCycle(config.toggleInterval, config.duration);
+
   // 监听section变化及其子节点变化
   const sectionDetector = domObserver.startSectionDetector(onDomChange);
+
   // 初始化调用一次
   onDomChange();
 
   // 延迟 100ms 后尝试读取用户配置并覆盖
   setTimeout(() => {
     const newConfig = Object.assign({}, defaultConfig, window.TrafficScriptConfig || {});
-    // 判断配置是否变化（简单粗暴比较JSON字符串）
+    // 判断配置是否变化
     if (JSON.stringify(newConfig) !== JSON.stringify(config)) {
       if (config.enableLog) console.log('[main] 100ms后检测到新配置，更新配置并重启任务');
       config = newConfig;
@@ -499,6 +504,7 @@ const domObserver = (() => {
       if (config.enableLog) console.log('[main] 100ms后无新配置，保持原配置');
     }
   }, 100);
+
   // 页面卸载时清理监听和定时器
   window.addEventListener('beforeunload', () => {
     domObserver.disconnectAll(sectionDetector);
